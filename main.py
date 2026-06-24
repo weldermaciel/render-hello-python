@@ -25,21 +25,17 @@ def home():
 async def listar_indicadores(authorization: str = Header(None)):
     if not authorization:
         raise HTTPException(status_code=401, detail="Token não fornecido")
-    
+
     token = authorization.replace("Bearer ", "")
-    
+
     try:
-        # Verifica se o token é válido com o Supabase
+        # Só valida se o token é válido — não precisa de set_session
         user = supabase.auth.get_user(token)
         if not user or not user.user:
             raise HTTPException(status_code=401, detail="Token inválido")
-        
-        # Para a consulta, usa o cliente com a chave anônima (já respeita RLS se ativado)
-        response = supabase.table("indicadores").select("*").execute()
-        return {"indicadores": response.data}
-    
-    except HTTPException:
-        raise
     except Exception as e:
-        print(f"Erro ao processar requisição: {e}")
-        raise HTTPException(status_code=500, detail="Erro interno do servidor")
+        raise HTTPException(status_code=401, detail=f"Token inválido: {str(e)}")
+
+    # Consulta diretamente — com RLS ativo, o Supabase filtra por auth.uid()
+    response = supabase.table("indicadores").select("*").execute()
+    return {"indicadores": response.data}
