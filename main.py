@@ -1,4 +1,4 @@
-from fastapi import Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from supabase import create_client
 import os
