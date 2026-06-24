@@ -22,20 +22,24 @@ def home():
     return {"message": "Hello, World!"}
 
 @app.get("/api/indicadores")
-async def listar_indicadores(authorization: str = Header(None)):
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Token não fornecido")
+async def listar_indicadores(
+    authorization: str = Header(None),
+    x_refresh_token: str = Header(None)
+):
+    if not authorization or not x_refresh_token:
+        raise HTTPException(status_code=401, detail="Tokens não fornecidos")
 
-    token = authorization.replace("Bearer ", "")
+    access_token = authorization.replace("Bearer ", "")
 
     try:
-        # Só valida se o token é válido — não precisa de set_session
-        user = supabase.auth.get_user(token)
-        if not user or not user.user:
-            raise HTTPException(status_code=401, detail="Token inválido")
-    except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Token inválido: {str(e)}")
+        # Cria um cliente autenticado com os dois tokens
+        supabase_user = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+        supabase_user.auth.set_session(access_token, x_refresh_token)
 
-    # Consulta diretamente — com RLS ativo, o Supabase filtra por auth.uid()
-    response = supabase.table("indicadores").select("*").execute()
-    return {"indicadores": response.data}
+        # Agora o RLS enxerga o auth.uid() corretamente
+        response = supabase_user.table("indicadores").select("*").execute()
+        return {"indicadores": response.data}
+
+    except Exception as e:
+        print(f"Erro ao consultar indicadores: {e}")
+        raise HTTPException(status_code=401, detail="Sessão inválida ou expirada")
